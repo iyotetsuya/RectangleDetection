@@ -7,6 +7,6 @@ Using [OpenCV](http://opencv.org) 2411 and [RxJava](https://github.com/ReactiveX
 * Algorithm is incorrect to draw a rectangle with four-point
 
 #Screenshot
-![Screenshot1](https://db.tt/aFXuu5dH)
-![Screenshot2](https://db.tt/E6mF8kup)
+![Screenshot1](https://dl.getdropbox.com/s/pvowb6np8uss82o/RD1.png)
+![Screenshot2](https://dl.getdropbox.com/s/tjacas7nsske94y/RD2.png)
 

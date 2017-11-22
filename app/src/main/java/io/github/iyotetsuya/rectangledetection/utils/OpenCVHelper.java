@@ -20,7 +20,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import io.github.iyotetsuya.rectangledetection.models.MatData;
-import rx.Observable;
+import io.reactivex.Observable;
 
 public class OpenCVHelper {
     private static final String TAG = OpenCVHelper.class.getSimpleName();
@@ -40,7 +40,7 @@ public class OpenCVHelper {
                     " ,scale to:" + resultMat.width() + "," + resultMat.height());
             matData.resizeMat = resultMat;
             sub.onNext(matData);
-            sub.onCompleted();
+            sub.onComplete();
         });
     }
 
@@ -58,10 +58,10 @@ public class OpenCVHelper {
                 matData.oriMat = dst;
                 Log.v(TAG, "getRgbMat time:" + (System.currentTimeMillis() - now));
                 sub.onNext(matData);
-                sub.onCompleted();
+                sub.onComplete();
             } catch (Exception e) {
                 e.printStackTrace();
-                sub.onCompleted();
+                sub.onError(e);
             }
         });
     }
@@ -75,7 +75,7 @@ public class OpenCVHelper {
             Imgproc.threshold(edgeMat, matData.monoChrome, 127, 255, Imgproc.THRESH_BINARY);
             Log.v(TAG, "getMonochromeMat time:" + (System.currentTimeMillis() - now));
             sub.onNext(matData);
-            sub.onCompleted();
+            sub.onComplete();
         });
     }
 
@@ -138,7 +138,7 @@ public class OpenCVHelper {
             }
             Log.v(TAG, "getContoursMat time:" + (System.currentTimeMillis() - now));
             sub.onNext(matData);
-            sub.onCompleted();
+            sub.onComplete();
         });
     }
 
@@ -177,11 +177,11 @@ public class OpenCVHelper {
                 matData.cameraPath = path;
             }
             subscriber.onNext(matData);
-            subscriber.onCompleted();
+            subscriber.onComplete();
         });
     }
 
-    public static int getDistance(Point point) {
+    private static int getDistance(Point point) {
         double x1 = 0;
         double x2 = point.x;
         double y1 = 0;

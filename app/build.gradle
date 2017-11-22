@@ -4,11 +4,9 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath 'me.tatarka:gradle-retrolambda:3.2.1'
   }
 }
 
-// Required because retrolambda is on maven central
 repositories {
   mavenCentral()
   maven {
@@ -16,16 +14,15 @@ repositories {
   }
 }
 
-apply plugin: 'me.tatarka.retrolambda'
 apply plugin: 'com.android.application'
 android {
-  compileSdkVersion 25
-  buildToolsVersion '25.0.3'
+  compileSdkVersion 26
+  buildToolsVersion '26.0.2'
 
   defaultConfig {
     applicationId "io.github.iyotetsuya.rectangledetection"
     minSdkVersion 16
-    targetSdkVersion 25
+    targetSdkVersion 26
     versionCode 1
     versionName "1.0"
   }
@@ -50,16 +47,11 @@ android {
   }
 }
 
-retrolambda {
-  jvmArgs '-noverify'
-  incremental false
-}
-
 dependencies {
   compile fileTree(dir: 'libs', include: ['*.jar'])
   testCompile 'junit:junit:4.12'
   compile 'io.reactivex:rxjava:1.0.4'
   compile 'io.reactivex:rxandroid:0.25.0'
-  compile 'com.android.support:appcompat-v7:25.3.1'
+  compile 'com.android.support:appcompat-v7:26.1.0'
   compile project(':openCVLibrary2411')
 }

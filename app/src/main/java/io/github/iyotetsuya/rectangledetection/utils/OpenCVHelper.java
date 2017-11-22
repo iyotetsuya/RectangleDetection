@@ -4,6 +4,7 @@ import android.graphics.Path;
 import android.hardware.Camera;
 import android.util.Log;
 
+import io.reactivex.Observable;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -20,7 +21,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import io.github.iyotetsuya.rectangledetection.models.MatData;
-import rx.Observable;
 
 public class OpenCVHelper {
     private static final String TAG = OpenCVHelper.class.getSimpleName();
@@ -40,7 +40,7 @@ public class OpenCVHelper {
                     " ,scale to:" + resultMat.width() + "," + resultMat.height());
             matData.resizeMat = resultMat;
             sub.onNext(matData);
-            sub.onCompleted();
+            sub.onComplete();
         });
     }
 
@@ -58,10 +58,10 @@ public class OpenCVHelper {
                 matData.oriMat = dst;
                 Log.v(TAG, "getRgbMat time:" + (System.currentTimeMillis() - now));
                 sub.onNext(matData);
-                sub.onCompleted();
+                sub.onComplete();
             } catch (Exception e) {
                 e.printStackTrace();
-                sub.onCompleted();
+                sub.onError(e);
             }
         });
     }
@@ -75,7 +75,7 @@ public class OpenCVHelper {
             Imgproc.threshold(edgeMat, matData.monoChrome, 127, 255, Imgproc.THRESH_BINARY);
             Log.v(TAG, "getMonochromeMat time:" + (System.currentTimeMillis() - now));
             sub.onNext(matData);
-            sub.onCompleted();
+            sub.onComplete();
         });
     }
 
@@ -138,7 +138,7 @@ public class OpenCVHelper {
             }
             Log.v(TAG, "getContoursMat time:" + (System.currentTimeMillis() - now));
             sub.onNext(matData);
-            sub.onCompleted();
+            sub.onComplete();
         });
     }
 
@@ -177,7 +177,7 @@ public class OpenCVHelper {
                 matData.cameraPath = path;
             }
             subscriber.onNext(matData);
-            subscriber.onCompleted();
+            subscriber.onComplete();
         });
     }
 

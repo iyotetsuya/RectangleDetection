@@ -15,11 +15,12 @@ import io.github.iyotetsuya.rectangledetection.models.MatData;
 import io.github.iyotetsuya.rectangledetection.utils.OpenCVHelper;
 import io.github.iyotetsuya.rectangledetection.views.CameraPreview;
 import io.github.iyotetsuya.rectangledetection.views.DrawView;
+import io.reactivex.Observable;
+import io.reactivex.ObservableTransformer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.schedulers.Schedulers;
+import io.reactivex.subjects.PublishSubject;
 import org.opencv.android.OpenCVLoader;
-import rx.Observable;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.schedulers.Schedulers;
-import rx.subjects.PublishSubject;
 
 public class MainActivity extends AppCompatActivity {
   private static final String TAG = MainActivity.class.getSimpleName();
@@ -103,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
         .concatMap(OpenCVHelper::getPath);
   }
 
-  private static <T> Observable.Transformer<T, T> mainAsync() {
+  private static <T> ObservableTransformer<T, T> mainAsync() {
     return obs -> obs.subscribeOn(Schedulers.newThread()).observeOn(AndroidSchedulers.mainThread());
   }
 }

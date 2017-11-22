@@ -4,7 +4,6 @@ import android.graphics.Path;
 import android.hardware.Camera;
 import android.util.Log;
 
-import io.reactivex.Observable;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -21,6 +20,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import io.github.iyotetsuya.rectangledetection.models.MatData;
+import io.reactivex.Observable;
 
 public class OpenCVHelper {
     private static final String TAG = OpenCVHelper.class.getSimpleName();
@@ -181,7 +181,7 @@ public class OpenCVHelper {
         });
     }
 
-    public static int getDistance(Point point) {
+    private static int getDistance(Point point) {
         double x1 = 0;
         double x2 = point.x;
         double y1 = 0;

@@ -1,8 +1,15 @@
 package io.github.iyotetsuya.rectangledetection;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import org.opencv.android.OpenCVLoader;
 
@@ -11,13 +18,16 @@ import io.github.iyotetsuya.rectangledetection.models.MatData;
 import io.github.iyotetsuya.rectangledetection.utils.OpenCVHelper;
 import io.github.iyotetsuya.rectangledetection.views.CameraPreview;
 import io.github.iyotetsuya.rectangledetection.views.DrawView;
-import rx.Observable;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.schedulers.Schedulers;
-import rx.subjects.PublishSubject;
+import io.reactivex.Observable;
+import io.reactivex.ObservableTransformer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.schedulers.Schedulers;
+import io.reactivex.subjects.PublishSubject;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
+    private static final int REQUEST_CAMERA = 1;
+    private static final int SIZE = 400;
 
     static {
         if (!OpenCVLoader.initDebug()) {
@@ -31,7 +41,37 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        CameraPreview cameraPreview = (CameraPreview) findViewById(R.id.camera_preview);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA},
+                    REQUEST_CAMERA);
+        } else {
+            init();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode) {
+            case REQUEST_CAMERA:
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    this.runOnUiThread(this::init);
+                } else {
+                    finish();
+                }
+                break;
+        }
+    }
+
+    private void init() {
+        CameraPreview cameraPreview = new CameraPreview(this);
+        FrameLayout layout = findViewById(R.id.root_view);
+        cameraPreview.init();
+        layout.addView(cameraPreview, 0,
+                new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT));
         cameraPreview.setCallback((data, camera) -> {
             CameraData cameraData = new CameraData();
             cameraData.data = data;
@@ -39,10 +79,10 @@ public class MainActivity extends AppCompatActivity {
             subject.onNext(cameraData);
         });
         cameraPreview.setOnClickListener(v -> cameraPreview.focus());
-        DrawView drawView = (DrawView) findViewById(R.id.draw_layout);
-        subject.concatMap(cameraData ->
-                OpenCVHelper.getRgbMat(new MatData(), cameraData.data, cameraData.camera))
-                .concatMap(matData -> OpenCVHelper.resize(matData, 400, 400))
+        DrawView drawView = findViewById(R.id.draw_layout);
+        subject.concatMap(
+                cameraData -> OpenCVHelper.getRgbMat(new MatData(), cameraData.data, cameraData.camera))
+                .concatMap(matData -> OpenCVHelper.resize(matData, SIZE, SIZE))
                 .map(matData -> {
                     matData.resizeRatio = (float) matData.oriMat.height() / matData.resizeMat.height();
                     matData.cameraRatio = (float) cameraPreview.getHeight() / matData.oriMat.height();
@@ -69,9 +109,7 @@ public class MainActivity extends AppCompatActivity {
                 .concatMap(OpenCVHelper::getPath);
     }
 
-    private static <T> Observable.Transformer<T, T> mainAsync() {
-        return obs -> obs.subscribeOn(Schedulers.newThread())
-                .observeOn(AndroidSchedulers.mainThread());
+    private static <T> ObservableTransformer<T, T> mainAsync() {
+        return obs -> obs.subscribeOn(Schedulers.newThread()).observeOn(AndroidSchedulers.mainThread());
     }
-
 }

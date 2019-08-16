@@ -83,8 +83,8 @@ public class MainActivity extends AppCompatActivity {
         cameraPreview.setOnClickListener(v -> cameraPreview.focus());
         DrawView drawView = findViewById(R.id.draw_layout);
         Disposable disposable = subject.concatMap(
-                cameraData -> OpenCVHelper.getRgbMat(cameraData.getData(), cameraData.getWidth(), cameraData.getHeight()))
-                .concatMap(rgbMat -> OpenCVHelper.resize(rgbMat, SIZE, SIZE))
+                cameraData -> OpenCVHelper.INSTANCE.getRgbMat(cameraData.getData(), cameraData.getWidth(), cameraData.getHeight()))
+                .concatMap(rgbMat -> OpenCVHelper.INSTANCE.resize(rgbMat, SIZE, SIZE))
                 .concatMap(mat -> {
                     float ratio = (float) cameraPreview.getHeight() / mat.height();
                     return detectRect(mat, ratio);
@@ -100,10 +100,10 @@ public class MainActivity extends AppCompatActivity {
 
     private Observable<Path> detectRect(Mat mat, float ratio) {
         return Observable.just(mat)
-                .concatMap(resizeMat -> OpenCVHelper.getMonochromeMat(resizeMat)
-                        .concatMap(monoChromeMat -> OpenCVHelper.getContoursMat(monoChromeMat, resizeMat))
+                .concatMap(resizeMat -> OpenCVHelper.INSTANCE.getMonochromeMat(resizeMat)
+                        .concatMap(monoChromeMat -> OpenCVHelper.INSTANCE.getContoursMat(monoChromeMat, resizeMat))
                         .flatMap(points -> Observable.just(points).flatMapIterable(e -> e).map(e -> new Point(e.x * ratio, e.y * ratio)).toList().toObservable())
-                        .concatMap(OpenCVHelper::getPath));
+                        .concatMap(OpenCVHelper.INSTANCE::getPath));
     }
 
     private static <T> ObservableTransformer<T, T> mainAsync() {

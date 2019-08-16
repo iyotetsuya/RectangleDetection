@@ -2,7 +2,7 @@
 Using [OpenCV](http://opencv.org) 2411 and [RxJava](https://github.com/ReactiveX/RxJava) implement a rectangle detection Android App
 
 # Note:
-* minSdkVersion 14
+* minSdkVersion 16
 * Portrait only
 * Algorithm is incorrect to draw a rectangle with four-point
 

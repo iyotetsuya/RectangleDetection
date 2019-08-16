@@ -1,7 +1,6 @@
 package io.github.iyotetsuya.rectangledetection.utils;
 
 import android.graphics.Path;
-import android.hardware.Camera;
 import android.util.Log;
 
 import org.opencv.core.Core;
@@ -19,15 +18,13 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-import io.github.iyotetsuya.rectangledetection.models.MatData;
 import io.reactivex.Observable;
 
 public class OpenCVHelper {
     private static final String TAG = OpenCVHelper.class.getSimpleName();
 
-    public static Observable<MatData> resize(MatData matData, float requestWidth, float requestHeight) {
+    public static Observable<Mat> resize(Mat mat, float requestWidth, float requestHeight) {
         return Observable.create(sub -> {
-            Mat mat = matData.oriMat;
             final int height = mat.height();
             final int width = mat.width();
             float ratioW = width / requestWidth;
@@ -38,26 +35,23 @@ public class OpenCVHelper {
             Imgproc.resize(mat, resultMat, size);
             Log.v(TAG, "request size:" + requestWidth + "," + requestHeight +
                     " ,scale to:" + resultMat.width() + "," + resultMat.height());
-            matData.resizeMat = resultMat;
-            sub.onNext(matData);
+            sub.onNext(resultMat);
             sub.onComplete();
         });
     }
 
-    public static Observable<MatData> getRgbMat(MatData matData, byte[] data, Camera camera) {
+    public static Observable<Mat> getRgbMat(byte[] data, int width, int height) {
         return Observable.create(sub -> {
             try {
                 long now = System.currentTimeMillis();
-                Camera.Size size = camera.getParameters().getPreviewSize();
-                Mat mYuv = new Mat(size.height + size.height / 2, size.width, CvType.CV_8UC1);
+                Mat mYuv = new Mat(height + height / 2, width, CvType.CV_8UC1);
                 mYuv.put(0, 0, data);
                 Mat mRGB = new Mat();
                 Imgproc.cvtColor(mYuv, mRGB, Imgproc.COLOR_YUV2RGB_NV21, 3);
                 Mat dst = new Mat();
                 Core.flip(mRGB.t(), dst, 1);
-                matData.oriMat = dst;
                 Log.v(TAG, "getRgbMat time:" + (System.currentTimeMillis() - now));
-                sub.onNext(matData);
+                sub.onNext(dst);
                 sub.onComplete();
             } catch (Exception e) {
                 e.printStackTrace();
@@ -67,24 +61,24 @@ public class OpenCVHelper {
     }
 
 
-    public static Observable<MatData> getMonochromeMat(MatData matData) {
+    public static Observable<Mat> getMonochromeMat(Mat mat) {
         return Observable.create(sub -> {
             long now = System.currentTimeMillis();
-            Mat edgeMat = getEdge(matData.resizeMat);
-            matData.monoChrome = new Mat();
-            Imgproc.threshold(edgeMat, matData.monoChrome, 127, 255, Imgproc.THRESH_BINARY);
+            Mat edgeMat = getEdge(mat);
+            Mat monoChrome = new Mat();
+            Imgproc.threshold(edgeMat, monoChrome, 127, 255, Imgproc.THRESH_BINARY);
             Log.v(TAG, "getMonochromeMat time:" + (System.currentTimeMillis() - now));
-            sub.onNext(matData);
+            sub.onNext(monoChrome);
             sub.onComplete();
         });
     }
 
-    private static Mat getEdge(Mat oriMat) {
+    private static Mat getEdge(Mat mat) {
         long now = System.currentTimeMillis();
         Mat sobelX = new Mat();
         Mat sobelY = new Mat();
-        Mat destination = new Mat(oriMat.rows(), oriMat.cols(), oriMat.type());
-        Imgproc.cvtColor(oriMat, destination, Imgproc.COLOR_RGBA2GRAY);
+        Mat destination = new Mat(mat.rows(), mat.cols(), mat.type());
+        Imgproc.cvtColor(mat, destination, Imgproc.COLOR_RGBA2GRAY);
         Imgproc.Sobel(destination, sobelX, CvType.CV_16S, 1, 0);
         Imgproc.Sobel(destination, sobelY, CvType.CV_16S, 0, 1);
         Mat absX = new Mat();
@@ -97,14 +91,14 @@ public class OpenCVHelper {
         return result;
     }
 
-    public static Observable<MatData> getContoursMat(MatData matData) {
+    public static Observable<List<Point>> getContoursMat(Mat monoChrome, Mat resizeMat) {
         return Observable.create(sub -> {
             //特徵化
             long now = System.currentTimeMillis();
             ArrayList<MatOfPoint> contours = new ArrayList<>();
-            Imgproc.findContours(matData.monoChrome.clone(), contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-            final int width = matData.monoChrome.rows();
-            final int height = matData.monoChrome.cols();
+            Imgproc.findContours(monoChrome.clone(), contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+            final int width = monoChrome.rows();
+            final int height = monoChrome.cols();
             int matArea = width * height;
             for (int i = 0; i < contours.size(); i++) {
                 double contoursArea = Imgproc.contourArea(contours.get(i));
@@ -116,7 +110,7 @@ public class OpenCVHelper {
                         !Imgproc.isContourConvex(new MatOfPoint(approx.toArray()))) {
                     continue;
                 }
-                Imgproc.drawContours(matData.resizeMat, contours, i, new Scalar(0, 255, 0));
+                Imgproc.drawContours(resizeMat, contours, i, new Scalar(0, 255, 0));
 
                 List<Point> points = approx.toList();
                 int pointCount = points.size();
@@ -129,15 +123,15 @@ public class OpenCVHelper {
                 double maxcos = cos.getLast();
                 if (points.size() == 4 && mincos >= -0.3 && maxcos <= 0.5) {
                     for (int j = 0; j < points.size(); j++) {
-                        Core.circle(matData.resizeMat, points.get(j), 6, new Scalar(255, 0, 0), 6);
+                        Core.circle(resizeMat, points.get(j), 6, new Scalar(255, 0, 0), 6);
                     }
-                    matData.points = points;
+                    sub.onNext(points);
                     break;
                 }
 
             }
             Log.v(TAG, "getContoursMat time:" + (System.currentTimeMillis() - now));
-            sub.onNext(matData);
+            sub.onNext(new ArrayList<>());
             sub.onComplete();
         });
     }
@@ -150,33 +144,25 @@ public class OpenCVHelper {
         return (dx1 * dx2 + dy1 * dy2) / Math.sqrt((dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2) + 1e-10);
     }
 
-    public static Observable<MatData> getPath(MatData matData) {
+    public static Observable<Path> getPath(List<Point> points) {
         return Observable.create(subscriber -> {
-            List<Point> cameraPoints = new ArrayList<>();
-            if (matData.points != null && matData.points.size() == 4) {
-                for (int i = 0; i < matData.points.size(); i++) {
-                    Point point = matData.points.get(i);
-                    Point cameraPoint = new Point(
-                            point.x * matData.resizeRatio * matData.cameraRatio,
-                            point.y * matData.resizeRatio * matData.cameraRatio);
-                    cameraPoints.add(cameraPoint);
-                }
-                Collections.sort(cameraPoints, (lhs, rhs) ->
-                        OpenCVHelper.getDistance(lhs) - OpenCVHelper.getDistance(rhs));
+            if (points != null && points.size() == 4) {
                 Path path = new Path();
-                path.moveTo((float) cameraPoints.get(0).x,
-                        (float) cameraPoints.get(0).y);
-                path.lineTo((float) cameraPoints.get(1).x,
-                        (float) cameraPoints.get(1).y);
-                path.lineTo((float) cameraPoints.get(3).x,
-                        (float) cameraPoints.get(3).y);
-                path.lineTo((float) cameraPoints.get(2).x,
-                        (float) cameraPoints.get(2).y);
-                path.lineTo((float) cameraPoints.get(0).x,
-                        (float) cameraPoints.get(0).y);
-                matData.cameraPath = path;
+                Collections.sort(points, (lhs, rhs) ->
+                        OpenCVHelper.getDistance(lhs) - OpenCVHelper.getDistance(rhs));
+
+                path.moveTo((float) points.get(0).x,
+                        (float) points.get(0).y);
+                path.lineTo((float) points.get(1).x,
+                        (float) points.get(1).y);
+                path.lineTo((float) points.get(3).x,
+                        (float) points.get(3).y);
+                path.lineTo((float) points.get(2).x,
+                        (float) points.get(2).y);
+                path.lineTo((float) points.get(0).x,
+                        (float) points.get(0).y);
+                subscriber.onNext(path);
             }
-            subscriber.onNext(matData);
             subscriber.onComplete();
         });
     }

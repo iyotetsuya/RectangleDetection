@@ -10,7 +10,8 @@ import android.view.View
 
 class DrawView : View {
     private var paint: Paint = Paint()
-    private var path: Path? = null
+    private var path: Path = Path()
+
 
     constructor(context: Context) : this(context, null)
 
@@ -24,12 +25,12 @@ class DrawView : View {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        this.path?.let {
+        this.path.let {
             canvas.drawPath(it, paint)
         }
     }
 
-    fun setPath(path: Path?) {
+    fun setPath(path: Path) {
         this.path = path
     }
 }

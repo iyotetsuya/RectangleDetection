@@ -2,25 +2,30 @@ package io.github.iyotetsuya.rectangledetection;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Path;
+import android.hardware.Camera;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import org.opencv.android.OpenCVLoader;
+import org.opencv.core.Mat;
+import org.opencv.core.Point;
 
 import io.github.iyotetsuya.rectangledetection.models.CameraData;
-import io.github.iyotetsuya.rectangledetection.models.MatData;
 import io.github.iyotetsuya.rectangledetection.utils.OpenCVHelper;
 import io.github.iyotetsuya.rectangledetection.views.CameraPreview;
 import io.github.iyotetsuya.rectangledetection.views.DrawView;
 import io.reactivex.Observable;
 import io.reactivex.ObservableTransformer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 
@@ -54,14 +59,12 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode) {
-            case REQUEST_CAMERA:
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    this.runOnUiThread(this::init);
-                } else {
-                    finish();
-                }
-                break;
+        if (requestCode == REQUEST_CAMERA) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                this.runOnUiThread(this::init);
+            } else {
+                finish();
+            }
         }
     }
 
@@ -73,40 +76,34 @@ public class MainActivity extends AppCompatActivity {
                 new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT));
         cameraPreview.setCallback((data, camera) -> {
-            CameraData cameraData = new CameraData();
-            cameraData.data = data;
-            cameraData.camera = camera;
+            Camera.Size size = camera.getParameters().getPreviewSize();
+            CameraData cameraData = new CameraData(data, size.width, size.height);
             subject.onNext(cameraData);
         });
         cameraPreview.setOnClickListener(v -> cameraPreview.focus());
         DrawView drawView = findViewById(R.id.draw_layout);
-        subject.concatMap(
-                cameraData -> OpenCVHelper.getRgbMat(new MatData(), cameraData.data, cameraData.camera))
-                .concatMap(matData -> OpenCVHelper.resize(matData, SIZE, SIZE))
-                .map(matData -> {
-                    matData.resizeRatio = (float) matData.oriMat.height() / matData.resizeMat.height();
-                    matData.cameraRatio = (float) cameraPreview.getHeight() / matData.oriMat.height();
-                    return matData;
+        Disposable disposable = subject.concatMap(
+                cameraData -> OpenCVHelper.getRgbMat(cameraData.getData(), cameraData.getWidth(), cameraData.getHeight()))
+                .concatMap(rgbMat -> OpenCVHelper.resize(rgbMat, SIZE, SIZE))
+                .concatMap(mat -> {
+                    float ratio = (float) cameraPreview.getHeight() / mat.height();
+                    return detectRect(mat, ratio);
                 })
-                .concatMap(this::detectRect)
                 .compose(mainAsync())
-                .subscribe(matData -> {
+                .subscribe(path -> {
                     if (drawView != null) {
-                        if (matData.cameraPath != null) {
-                            drawView.setPath(matData.cameraPath);
-                        } else {
-                            drawView.setPath(null);
-                        }
+                        drawView.setPath(path);
                         drawView.invalidate();
                     }
                 });
     }
 
-    private Observable<MatData> detectRect(MatData mataData) {
-        return Observable.just(mataData)
-                .concatMap(OpenCVHelper::getMonochromeMat)
-                .concatMap(OpenCVHelper::getContoursMat)
-                .concatMap(OpenCVHelper::getPath);
+    private Observable<Path> detectRect(Mat mat, float ratio) {
+        return Observable.just(mat)
+                .concatMap(resizeMat -> OpenCVHelper.getMonochromeMat(resizeMat)
+                        .concatMap(monoChromeMat -> OpenCVHelper.getContoursMat(monoChromeMat, resizeMat))
+                        .flatMap(points -> Observable.just(points).flatMapIterable(e -> e).map(e -> new Point(e.x * ratio, e.y * ratio)).toList().toObservable())
+                        .concatMap(OpenCVHelper::getPath));
     }
 
     private static <T> ObservableTransformer<T, T> mainAsync() {
